@@ -1,57 +1,39 @@
-'use strict';
-const fs = require('fs');
-const EventEmitter = require('events').EventEmitter;
-const toKey = require('./keycodes');
+#!/usr/bin/env node
 
-const EVENT_TYPES = ['keyup', 'keypress', 'keydown'];
-const EV_KEY = 1;
+/**
+ * imcrypt
+ * An image encryption node-js cli
+ *
+ * @author theninza <https://theninza.me>
+ */
 
-function Keyboard(dev) {
-  this.dev = dev || 'event0';
-  this.bufferSize = 24;
-  this.buffer = new Buffer(this.bufferSize);
-  this.data = fs.createReadStream(`/dev/input/${this.dev}`);
-  this.onRead();
-}
+const init = require('./utils/init');
+const cli = require('./utils/cli');
+const encrypt = require('./utils/encrypt');
+const decrypt = require('./utils/decrypt');
 
-Keyboard.prototype = Object.create(EventEmitter.prototype, {
-  constructor: { value: Keyboard }
-});
+const input = cli.input;
+const flags = cli.flags;
+const { clear } = flags;
 
-Keyboard.prototype.onRead = function onRead() {
-  const self = this;
+(async () => {
+	init({ clear });
 
-  this.data.on('data', data => {
-    this.buffer = data.slice(24);
-    let event = parse(this, this.buffer);
-    if (event) {
-      event.dev = self.dev;
-      self.emit(event.type, event);
-    }
-  });
+	input.includes(`help`) && cli.showHelp(0);
+	// check if encrypt is present in flags object
+	if (flags.encrypt) {
+		await encrypt(flags);
+	} else if (flags.decrypt) {
+		await decrypt(flags);
+	}
 
-  this.data.on('error', err => {
-    self.emit('error', err);
-    throw new Error(err);
-  });
+	// footer to show when the program is finished
 
-}
+	const chalk = (await import(`chalk`)).default;
 
-function parse(input, buffer) {
-  let event;
-  if (buffer.readUInt16LE(16) === EV_KEY) {
-    event = {
-      timeS: buffer.readUInt16LE(0),
-      timeMS: buffer.readUInt16LE(8),
-      keyCode: buffer.readUInt16LE(18),
-    };
-    event.keyId = toKey[event.keyCode];
-    event.type = EVENT_TYPES[buffer.readUInt32LE(20)];
-  }
-  return event;
-}
-
-
-Keyboard.Keys = toKey;
-
-module.exports = Keyboard;
+	// print Give it a star on github: https://github.com/theninza/imcrypt with chalk and bgMagenta
+	console.log(
+		chalk.bgMagenta(` Give it a star on github: `) +
+			chalk.bold(` https://github.com/theninza/imcrypt `)
+	);
+})();
